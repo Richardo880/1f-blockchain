@@ -2,12 +2,13 @@ require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
 module.exports = {
-  networks: {
-    ephemery: {
-      url: "https://rpc.ephemery.dev",
-      accounts: [process.env.PRIVATE_KEY],
-    }
-  },
   solidity: "0.8.19",
+  networks: {
+    sepolia: {
+      url: "https://ethereum-sepolia-rpc.publicnode.com",
+      accounts: process.env.PRIVATE_KEY ? [`0x${process.env.PRIVATE_KEY}`] : [],
+      timeout: 120000, // 2 minutos para conexiones lentas
+    },
+  },
 };
 
