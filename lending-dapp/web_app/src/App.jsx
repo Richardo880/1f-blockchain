@@ -1,35 +1,276 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import { ethers, BrowserProvider } from "ethers";
+import contractABI from "./contractABI.json";
+
+const contractAddress = "0x482E954eD001C1DF088DED3b07933baE7c727Dca"; // Dirección del contrato principal
+const rpcURL = "https://alfajores-forno.celo-testnet.org";
+
+const collateralTokenAddress = "0x0B32557b8D4376496356156520e41b240edB1bf3"; // Dirección de el cUSD
+const loanTokenAddress = "0x7293b9b60C9ad24AABF4618da2d548649D4Ad4ae";       // Dirección de dDAI
+
+const erc20ABI = [
+  "function approve(address spender, uint256 amount) public returns (bool)",
+  "function allowance(address owner, address spender) public view returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)",
+  "function mint(address to, uint256 amount) external",
+  "function transfer(address to, uint256 amount) external returns (bool)",
+  "function transferFrom(address from, address to, uint256 amount) external returns (bool)"
+];
+
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [account, setAccount] = useState(null);
+  const [protocol, setProtocol] = useState(null);
+  const [userData, setUserData] = useState({ collateral: 0, debt: 0, interest: 0 });
+  const [balanceCUSD, setBalanceCUSD] = useState("0");
+  const [balanceDDAI, setBalanceDDAI] = useState("0");
+  const [collateralToken, setCollateralTokenContract] = useState(null);
+  const [loanToken, setLoanTokenContract] = useState(null);
+
+  useEffect(() => {
+    const initializeContracts = async () => {
+      if (window.ethereum && account) {
+        try {
+          console.log("Contract addresses:", {
+            contractAddress,
+            collateralTokenAddress,
+            loanTokenAddress
+          });
+          
+          // Validar que todas las direcciones estén definidas
+          if (!contractAddress) {
+            throw new Error("VITE_CONTRACT_ADDRESS no está definida en las variables de entorno");
+          }
+          if (!collateralTokenAddress) {
+            throw new Error("collateralTokenAddress no está definida");
+          }
+          if (!loanTokenAddress) {
+            throw new Error("loanTokenAddress no está definida");
+          }
+
+          const provider = new BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          
+          console.log("Creating contracts with signer:", signer);
+          
+          const collateralToken = new ethers.Contract(collateralTokenAddress, erc20ABI, signer);
+          const loanToken = new ethers.Contract(loanTokenAddress, erc20ABI, signer);
+          const lendingContract = new ethers.Contract(contractAddress, contractABI, signer);
+          
+          setProtocol(lendingContract);
+          setCollateralTokenContract(collateralToken);
+          setLoanTokenContract(loanToken);
+          
+          console.log("Contracts initialized successfully");
+        } catch (error) {
+          console.error("Error initializing contracts:", error);
+        }
+      }
+    };
+
+    initializeContracts();
+  }, [account]);
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      setAccount(accounts[0]);
+    } else {
+      alert("MetaMask no detectado");
+    }
+  };
+
+  const loadUserData = async () => {
+    if (protocol && account) {
+      const [collateral, debt, interest] = await protocol.getUserData(account);
+      setUserData({
+        collateral: ethers.formatEther(collateral),
+        debt: ethers.formatEther(debt),
+        interest: ethers.formatEther(interest)
+      });
+    }
+  };
+
+  const deposit = async () => {
+    try {
+      const amount = prompt("¿Cuánto cUSD querés depositar?");
+      if (!amount || amount <= 0) {
+        alert("Cantidad inválida");
+        return;
+      }
+      
+      const weiAmount = ethers.parseEther(amount);
+      
+      console.log("Deposit amount:", amount, "wei:", weiAmount.toString());
+      
+      // Verificar balance del usuario
+      const userBalance = await collateralToken.balanceOf(account);
+      console.log("User balance:", ethers.formatEther(userBalance));
+      
+      if (userBalance < weiAmount) {
+        alert(`No tenés suficientes cUSD. Balance: ${ethers.formatEther(userBalance)} cUSD`);
+        return;
+      }
+      
+      // Verificar allowance
+      const allowance = await collateralToken.allowance(account, contractAddress);
+      console.log("Current allowance:", ethers.formatEther(allowance));
+      
+      if (allowance < weiAmount) {
+        console.log("Approving tokens...");
+        // 1. Aprobar al contrato principal para mover cUSD
+        const approveTx = await collateralToken.approve(contractAddress, weiAmount);
+        await approveTx.wait();
+        console.log("Approval successful");
+      }
+
+      // 2. Llamar a depositCollateral en el contrato principal
+      console.log("Calling depositCollateral...");
+      const depositTx = await protocol.depositCollateral(weiAmount);
+      await depositTx.wait();
+      console.log("Deposit successful");
+
+      alert("Depósito exitoso");
+      
+      // Recargar datos del usuario
+      await loadUserData();
+      await loadBalances();
+      
+    } catch (error) {
+      console.error("Error in deposit:", error);
+      alert(`Error en el depósito: ${error.message}`);
+    }
+  };
+
+  const borrow = async () => {
+    // 1. Obtener la posición del usuario
+    const [collateral, debt, interest] = await protocol.getUserData(account);
+
+    // 2. Calcular el máximo prestable (66% del colateral)
+    const maxBorrow = collateral * 66n / 100n;
+
+    const amount = prompt(`¿Cuánto dDAI querés pedir prestado? (máximo: ${ethers.formatEther(maxBorrow)} dDAI)`);
+    const weiAmount = ethers.parseEther(amount);
+
+    // 3. Validar límite de colateralización
+    if (weiAmount > maxBorrow) {
+      alert("Supera el límite permitido por tu colateral");
+      return;
+    }
+
+    // 4. Ejecutar la función borrow()
+    const tx = await protocol.borrow(weiAmount);
+    await tx.wait();
+
+    alert("Préstamo exitoso");
+  };
+
+
+  const repay = async () => {
+    // 1. Obtener deuda actual e interés
+    const [_, debt, interest] = await protocol.getUserData(account);
+    const total = debt + interest;
+
+    // 2. Aprobar el uso de dDAI
+    const approveTx = await loanToken.approve(contractAddress, total);
+    await approveTx.wait();
+
+    // 3. Ejecutar repay()
+    const repayTx = await protocol.repay();
+    await repayTx.wait();
+
+    alert("Pago realizado con éxito");
+  };
+
+  const withdraw = async () => {
+    await protocol.withdrawCollateral();
+  };
+
+  const mintCollateral = async () => {
+    try {
+      const amount = prompt("¿Cuánto cUSD querés mintear?");
+      if (!amount || amount <= 0) {
+        alert("Cantidad inválida");
+        return;
+      }
+      
+      const weiAmount = ethers.parseEther(amount);
+      console.log("Minting", amount, "cUSD to", account);
+
+      const tx = await collateralToken.mint(account, weiAmount);
+      await tx.wait();
+
+      alert(`Se mintaron ${amount} cUSD a tu cuenta`);
+      
+      // Recargar balances
+      await loadBalances();
+      
+    } catch (error) {
+      console.error("Error minting collateral:", error);
+      alert(`Error mintando cUSD: ${error.message}`);
+    }
+  };
+
+  const mintLoanToken = async () => {
+    try {
+      const amount = prompt("¿Cuánto dDAI querés mintear?");
+      if (!amount || amount <= 0) {
+        alert("Cantidad inválida");
+        return;
+      }
+      
+      const weiAmount = ethers.parseEther(amount);
+      console.log("Minting", amount, "dDAI to", account);
+
+      const tx = await loanToken.mint(account, weiAmount);
+      await tx.wait();
+
+      alert(`Se mintaron ${amount} dDAI a tu cuenta`);
+      
+      // Recargar balances
+      await loadBalances();
+      
+    } catch (error) {
+      console.error("Error minting loan token:", error);
+      alert(`Error mintando dDAI: ${error.message}`);
+    }
+  };
+
+  const loadBalances = async () => {
+    if (!account) return;
+
+    const cBal = await collateralToken.balanceOf(account);
+    const dBal = await loanToken.balanceOf(account);
+
+    setBalanceCUSD(ethers.formatEther(cBal));
+    setBalanceDDAI(ethers.formatEther(dBal));
+  };
+
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div>
+      <h1>Lending DApp</h1>
+      {!account && <button onClick={connectWallet}>Conectar Wallet</button>}
+      {account && (
+        <div>
+          <p><strong>Cuenta:</strong> {account}</p>
+          <button onClick={loadUserData}>Cargar Datos</button>
+          <p>Colateral: {userData.collateral} cUSD</p>
+          <p>Deuda: {userData.debt} dDAI</p>
+          <p>Interés: {userData.interest} dDAI</p>
+          <button onClick={deposit}>Depositar</button>
+          <button onClick={borrow}>Pedir Préstamo</button>
+          <button onClick={repay}>Pagar</button>
+          <button onClick={withdraw}>Retirar</button>
+          <button onClick={mintCollateral}>Mint cUSD</button>
+          <button onClick={mintLoanToken}>Mint dDAI</button>
+          <p><strong>Balance cUSD:</strong> {balanceCUSD}</p>
+          <p><strong>Balance dDAI:</strong> {balanceDDAI}</p>
+          <button onClick={loadBalances}>Actualizar Balances</button>
+        </div>
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
