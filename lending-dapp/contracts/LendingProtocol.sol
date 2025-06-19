@@ -31,7 +31,7 @@ contract LendingProtocol {
     function borrow(uint256 amount) external {
         UserData storage user = users[msg.sender];
         uint256 maxLoan = (user.collateral * 100) / collateralizationRatio;
-        require(amount <= maxLoan, "Exceeds borrowing limit");
+        require(user.debt + amount <= maxLoan, "Exceeds borrowing limit");
 
         user.debt += amount;
         require(loanToken.transfer(msg.sender, amount), "Loan transfer failed");
