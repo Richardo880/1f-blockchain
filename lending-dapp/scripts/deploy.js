@@ -58,15 +58,21 @@ async function main() {
   await lendingProtocol.waitForDeployment();
   console.log("LendingProtocol desplegado en:", lendingProtocol.target);
 
-  // 4. Guardar direcciones en un archivo (útil para frontend)
+  // 4. Transferir la propiedad del LoanToken al LendingProtocol
+  console.log("Transfiriendo propiedad del LoanToken al LendingProtocol...");
+  const tx = await loanToken.transferOwnership(lendingProtocol.target);
+  await tx.wait();
+  console.log("Propiedad transferida.");
+
+  // 5. Guardar direcciones en un archivo (útil para frontend)
   const data = {
     collateralToken: collateralToken.target,
     loanToken: loanToken.target,
     lendingProtocol: lendingProtocol.target
   };
 
-  fs.writeFileSync("deployed-addresses.json", JSON.stringify(data, null, 2));
-  console.log("Direcciones guardadas en deployed-addresses.json");
+  fs.writeFileSync("web_app/src/deployed-addresses.json", JSON.stringify(data, null, 2));
+  console.log("Direcciones guardadas en web_app/src/deployed-addresses.json");
 }
 
 main().catch((error) => {

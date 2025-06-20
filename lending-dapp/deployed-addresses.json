@@ -1,5 +1,5 @@
 {
-  "collateralToken": "0x0B32557b8D4376496356156520e41b240edB1bf3",
-  "loanToken": "0x7293b9b60C9ad24AABF4618da2d548649D4Ad4ae",
-  "lendingProtocol": "0x482E954eD001C1DF088DED3b07933baE7c727Dca"
+  "collateralToken": "0x7910398e0c69a332F36C9b7EA3c99cd4B4213D65",
+  "loanToken": "0x6896db58cAF5051b785147f0aA1770C5Dcca4BB1",
+  "lendingProtocol": "0xA9c52be2F3a869c5A5Da64aEc11213af85cb0326"
 }

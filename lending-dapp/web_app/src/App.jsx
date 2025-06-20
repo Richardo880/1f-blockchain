@@ -6,6 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 
 import contractABI from "./contractABI.json";
+import deployedAddresses from "./deployed-addresses.json";
 
 import {
   FiLogIn,
@@ -24,11 +25,11 @@ import {
   FiPieChart
 } from "react-icons/fi";
 
-const contractAddress = "0x482E954eD001C1DF088DED3b07933baE7c727Dca"; // Dirección del contrato principal
+const contractAddress = deployedAddresses.lendingProtocol;
 const rpcURL = "https://alfajores-forno.celo-testnet.org";
 
-const collateralTokenAddress = "0x0B32557b8D4376496356156520e41b240edB1bf3"; // Dirección de el cUSD
-const loanTokenAddress = "0x7293b9b60C9ad24AABF4618da2d548649D4Ad4ae";       // Dirección de dDAI
+const collateralTokenAddress = deployedAddresses.collateralToken;
+const loanTokenAddress = deployedAddresses.loanToken;
 
 const erc20ABI = [
   "function approve(address spender, uint256 amount) public returns (bool)",
