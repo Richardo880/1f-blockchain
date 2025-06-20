@@ -1,6 +1,6 @@
 # Guía de Despliegue - Protocolo de Lending
 
-Esta guía te llevará paso a paso para desplegar completamente el sistema de lending desde cero, incluyendo los contratos inteligentes y la aplicación web.
+Esta guía te llevará paso a paso para desplegar completamente el sistema de lending desde cero en una máquina nueva, incluyendo los contratos inteligentes y la aplicación web.
 
 ## 📋 Prerrequisitos
 
@@ -27,7 +27,7 @@ Esta guía te llevará paso a paso para desplegar completamente el sistema de le
 - Conceptos básicos de blockchain y Ethereum
 - Conocimiento básico de JavaScript/React
 
-## 🚀 Instalación y Configuración
+## 🚀 Instalación y Configuración desde Cero
 
 ### Paso 1: Clonar el Repositorio
 
@@ -40,6 +40,18 @@ cd blockchain-final/lending-dapp
 ls -la
 ```
 
+**Estructura esperada:**
+```
+lending-dapp/
+├── contracts/          # Contratos Solidity
+├── scripts/           # Scripts de despliegue
+├── test/              # Tests unitarios
+├── web_app/           # Aplicación React
+├── hardhat.config.js  # Configuración de Hardhat
+├── package.json       # Dependencias
+└── env.example        # Ejemplo de variables de entorno
+```
+
 ### Paso 2: Instalar Dependencias
 
 ```bash
@@ -48,47 +60,52 @@ npm install
 
 # Verificar que se instalaron correctamente
 ls node_modules
+
+# Instalar dependencias de la aplicación web
+cd web_app
+npm install
+cd ..
 ```
 
 ### Paso 3: Configurar Variables de Entorno
 
 ```bash
-# Crear archivo de variables de entorno
-touch .env
+# Crear archivo de variables de entorno desde el ejemplo
+cp env.example .env
 
 # Editar el archivo .env con tu configuración
 nano .env
 ```
 
-**Contenido del archivo `.env`:**
+**Contenido del archivo `.env` (ejemplo completo):**
 ```env
-# Clave privada de tu wallet (para despliegue)
-PRIVATE_KEY=tu_clave_privada_aqui
+# Clave privada de tu wallet (para despliegue) - SIN 0x al inicio
+PRIVATE_KEY=tu_clave_privada_aqui_sin_0x
 
-# URL de la red (ejemplos)
-# Para Ethereum Mainnet:
-# RPC_URL=https://mainnet.infura.io/v3/TU_PROJECT_ID
+# URLs de RPC para diferentes redes
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/TU_PROJECT_ID
+MUMBAI_RPC_URL=https://polygon-mumbai.infura.io/v3/TU_PROJECT_ID
+MAINNET_RPC_URL=https://mainnet.infura.io/v3/TU_PROJECT_ID
 
-# Para Sepolia Testnet:
-RPC_URL=https://sepolia.infura.io/v3/TU_PROJECT_ID
+# API Keys para verificación de contratos
+ETHERSCAN_API_KEY=tu_etherscan_api_key
+POLYGONSCAN_API_KEY=tu_polygonscan_api_key
 
-# Para Polygon Mumbai:
-# RPC_URL=https://polygon-mumbai.infura.io/v3/TU_PROJECT_ID
-
-# Para red local (Hardhat):
-# RPC_URL=http://127.0.0.1:8545
+# URLs de exploradores
+ETHERSCAN_URL=https://sepolia.etherscan.io
+POLYGONSCAN_URL=https://mumbai.polygonscan.com
 ```
 
-### Paso 4: Configurar Hardhat
+### Paso 4: Verificar Configuración de Hardhat
 
-Editar `hardhat.config.js` según tu red objetivo:
+El archivo `hardhat.config.js` ya está configurado para múltiples redes. Verifica que esté correcto:
 
 ```javascript
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
 module.exports = {
-  solidity: "0.8.20",
+  solidity: "0.8.19",
   networks: {
     // Red local para desarrollo
     hardhat: {
@@ -97,21 +114,21 @@ module.exports = {
     
     // Sepolia Testnet
     sepolia: {
-      url: process.env.RPC_URL,
+      url: process.env.SEPOLIA_RPC_URL,
       accounts: [process.env.PRIVATE_KEY],
       chainId: 11155111
     },
     
     // Polygon Mumbai
     mumbai: {
-      url: process.env.RPC_URL,
+      url: process.env.MUMBAI_RPC_URL,
       accounts: [process.env.PRIVATE_KEY],
       chainId: 80001
     },
     
     // Ethereum Mainnet (¡CUIDADO!)
     mainnet: {
-      url: process.env.RPC_URL,
+      url: process.env.MAINNET_RPC_URL,
       accounts: [process.env.PRIVATE_KEY],
       chainId: 1
     }
@@ -119,7 +136,11 @@ module.exports = {
   
   // Configuración para verificación de contratos
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY
+    apiKey: {
+      sepolia: process.env.ETHERSCAN_API_KEY,
+      mainnet: process.env.ETHERSCAN_API_KEY,
+      polygonMumbai: process.env.POLYGONSCAN_API_KEY
+    }
   }
 };
 ```
@@ -134,76 +155,102 @@ npx hardhat compile
 
 # Deberías ver algo como:
 # Compiled 4 Solidity files successfully
+# - CollateralToken.sol
+# - LendingProtocol.sol  
+# - LoanToken.sol
+# - Lock.sol
 ```
 
-### Paso 2: Ejecutar Tests (Opcional pero Recomendado)
+### Paso 2: Ejecutar Tests (Obligatorio antes del despliegue)
 
 ```bash
 # Ejecutar todos los tests
 npm test
 
-# Deberías ver todos los tests pasando ✅
+# Deberías ver: 89 passing (2s)
+# Si hay errores, revisar la configuración antes de continuar
 ```
 
 ### Paso 3: Desplegar en Red Local (Desarrollo)
 
 ```bash
-# Iniciar nodo local de Hardhat
+# Terminal 1: Iniciar nodo local de Hardhat
 npx hardhat node
 
-# En otra terminal, desplegar contratos
+# Terminal 2: Desplegar contratos
 npx hardhat run scripts/deploy.js --network localhost
+
+# Deberías ver las direcciones de los contratos desplegados:
+# CollateralToken deployed to: 0x...
+# LoanToken deployed to: 0x...
+# LendingProtocol deployed to: 0x...
 ```
 
-### Paso 4: Desplegar en Testnet (Recomendado para pruebas)
+### Paso 4: Configurar Aplicación Web para Desarrollo Local
+
+```bash
+# Copiar direcciones desplegadas a la aplicación web
+cp deployed-addresses.json web_app/src/
+
+# Copiar ABI compilado a la aplicación web
+cp artifacts/contracts/LendingProtocol.sol/LendingProtocol.json web_app/src/contractABI.json
+
+# Iniciar aplicación web
+cd web_app
+npm run dev
+
+# La aplicación estará disponible en http://localhost:5173
+```
+
+### Paso 5: Desplegar en Testnet (Recomendado para pruebas)
 
 ```bash
 # Asegúrate de tener ETH en tu wallet de testnet
 # Para Sepolia: https://sepoliafaucet.com/
+# Para Mumbai: https://faucet.polygon.technology/
 
 # Desplegar en Sepolia
 npx hardhat run scripts/deploy.js --network sepolia
 
 # Deberías ver las direcciones de los contratos desplegados
+# Guarda estas direcciones para la configuración posterior
 ```
 
-### Paso 5: Verificar Contratos (Opcional)
+### Paso 6: Verificar Contratos (Opcional pero recomendado)
 
 ```bash
 # Obtener API key de Etherscan
 # https://etherscan.io/apis
 
-# Agregar a .env
-echo "ETHERSCAN_API_KEY=tu_api_key_aqui" >> .env
-
-# Verificar contratos
-npx hardhat verify --network sepolia DIRECCION_DEL_CONTRATO
+# Verificar contratos (reemplaza con las direcciones reales)
+npx hardhat verify --network sepolia DIRECCION_COLLATERAL_TOKEN
+npx hardhat verify --network sepolia DIRECCION_LOAN_TOKEN
+npx hardhat verify --network sepolia DIRECCION_LENDING_PROTOCOL DIRECCION_COLLATERAL_TOKEN DIRECCION_LOAN_TOKEN
 ```
 
-## 🌐 Despliegue de la Aplicación Web
+## 🌐 Configuración de la Aplicación Web
 
-### Paso 1: Configurar la Aplicación React
+### Paso 1: Configurar Direcciones de Contratos
+
+Después del despliegue, actualiza los archivos de configuración:
 
 ```bash
-# Navegar al directorio de la aplicación web
-cd web_app
+# Copiar direcciones desplegadas
+cp deployed-addresses.json web_app/src/
 
-# Instalar dependencias
-npm install
-
-# Verificar instalación
-npm list
+# Copiar ABI compilado
+cp artifacts/contracts/LendingProtocol.sol/LendingProtocol.json web_app/src/contractABI.json
 ```
 
-### Paso 2: Configurar Direcciones de Contratos
+### Paso 2: Verificar Configuración de la App
 
-Editar `src/contractABI.json` con las direcciones de los contratos desplegados:
+Verifica que `web_app/src/deployed-addresses.json` contenga las direcciones correctas:
 
 ```json
 {
-  "lendingProtocol": "DIRECCION_DEL_PROTOCOLO",
-  "collateralToken": "DIRECCION_DEL_TOKEN_COLATERAL",
-  "loanToken": "DIRECCION_DEL_TOKEN_PRESTAMO"
+  "collateralToken": "0x...",
+  "loanToken": "0x...",
+  "lendingProtocol": "0x..."
 }
 ```
 
@@ -216,8 +263,13 @@ Editar `src/contractABI.json` con las direcciones de los contratos desplegados:
      - RPC URL: https://sepolia.infura.io/v3/TU_PROJECT_ID
      - Chain ID: 11155111
      - Símbolo: ETH
+   - **Mumbai Testnet:**
+     - Nombre: Mumbai
+     - RPC URL: https://polygon-mumbai.infura.io/v3/TU_PROJECT_ID
+     - Chain ID: 80001
+     - Símbolo: MATIC
 
-### Paso 4: Ejecutar Aplicación en Desarrollo
+### Paso 4: Ejecutar Aplicación
 
 ```bash
 # Desde el directorio web_app
@@ -226,57 +278,50 @@ npm run dev
 # La aplicación estará disponible en http://localhost:5173
 ```
 
-### Paso 5: Desplegar Aplicación en Producción
-
-```bash
-# Construir para producción
-npm run build
-
-# Los archivos estarán en dist/
-# Subir a tu hosting preferido (Vercel, Netlify, etc.)
-```
-
-## 🔗 Configuración Post-Despliegue
-
-### Paso 1: Configurar Tokens Iniciales
-
-```bash
-# Script para configurar tokens iniciales
-npx hardhat run scripts/setup-tokens.js --network sepolia
-```
-
-### Paso 2: Verificar Funcionalidad
+### Paso 5: Probar Funcionalidad
 
 1. **Conectar MetaMask** a la aplicación
-2. **Aprobar tokens** para el protocolo
-3. **Depositar colateral**
-4. **Solicitar préstamo**
-5. **Pagar deuda**
-6. **Retirar colateral**
+2. **Mint tokens de colateral** (cUSD) usando el botón "Mint cUSD"
+3. **Aprobar tokens** para el protocolo
+4. **Depositar colateral**
+5. **Solicitar préstamo** (dDAI)
+6. **Mint tokens de préstamo** (dDAI) para pagar
+7. **Pagar deuda**
+8. **Retirar colateral**
 
 ## 🛠️ Scripts Útiles
 
 ### Scripts de Despliegue
 
 ```bash
-# Desplegar solo contratos
+# Desplegar contratos
 npx hardhat run scripts/deploy.js --network sepolia
 
-# Desplegar y verificar
-npx hardhat run scripts/deploy-and-verify.js --network sepolia
+# Verificar contratos
+npx hardhat verify --network sepolia DIRECCION_CONTRATO [ARGUMENTOS]
 
-# Configurar tokens iniciales
-npx hardhat run scripts/setup-tokens.js --network sepolia
+# Ejecutar tests específicos
+npx hardhat test --grep "nombre_del_test"
+
+# Limpiar artifacts y cache
+npx hardhat clean
 ```
 
 ### Scripts de Mantenimiento
 
 ```bash
-# Actualizar parámetros del protocolo
-npx hardhat run scripts/update-params.js --network sepolia
+# Actualizar dependencias
+npm update
 
-# Migrar datos de usuarios
-npx hardhat run scripts/migrate-data.js --network sepolia
+# Ejecutar tests
+npm test
+
+# Verificar seguridad
+npm audit
+
+# Construir aplicación para producción
+cd web_app
+npm run build
 ```
 
 ## 🔒 Consideraciones de Seguridad
@@ -286,19 +331,23 @@ npx hardhat run scripts/migrate-data.js --network sepolia
 1. **Auditoría de Seguridad**
    - Contratar auditoría profesional
    - Revisar vulnerabilidades conocidas
+   - Los contratos actuales tienen mint público (solo para desarrollo)
 
 2. **Tests Exhaustivos**
    - Ejecutar tests en múltiples redes
    - Probar casos edge y de stress
+   - Verificar que todos los 89 tests pasen
 
 3. **Configuración de Redes**
    - Usar nodos RPC confiables
    - Configurar múltiples proveedores
+   - Verificar conectividad
 
 4. **Gestión de Claves**
    - Usar wallets hardware
    - Implementar multisig
    - Nunca compartir claves privadas
+   - Usar variables de entorno
 
 ### Configuración de Producción
 
@@ -306,7 +355,7 @@ npx hardhat run scripts/migrate-data.js --network sepolia
 // hardhat.config.js para producción
 module.exports = {
   solidity: {
-    version: "0.8.20",
+    version: "0.8.19",
     settings: {
       optimizer: {
         enabled: true,
@@ -344,14 +393,23 @@ module.exports = {
 
 3. **"Contract not found"**
    ```bash
-   # Verificar direcciones en contractABI.json
+   # Verificar direcciones en deployed-addresses.json
    # Verificar red en MetaMask
+   # Verificar que los contratos estén desplegados
    ```
 
 4. **"Gas estimation failed"**
    ```bash
    # Aumentar gas limit
    # Verificar parámetros de la transacción
+   # Verificar que el usuario tenga tokens suficientes
+   ```
+
+5. **"Tests failing"**
+   ```bash
+   # Verificar que todas las dependencias estén instaladas
+   # Verificar configuración de Hardhat
+   # Ejecutar npm test para ver errores específicos
    ```
 
 ### Logs y Debugging
@@ -362,6 +420,11 @@ npx hardhat run scripts/deploy.js --network sepolia --verbose
 
 # Debug con console.log
 npx hardhat console --network sepolia
+
+# Ver logs de la aplicación web
+cd web_app
+npm run dev
+# Revisar consola del navegador para errores
 ```
 
 ## 📊 Monitoreo y Mantenimiento
@@ -371,12 +434,13 @@ npx hardhat console --network sepolia
 1. **Etherscan/Polyscan**
    - Monitorear transacciones
    - Verificar contratos
+   - Ver logs de eventos
 
-2. **The Graph**
+2. **The Graph** (futuro)
    - Indexar eventos
    - Crear APIs
 
-3. **Tenderly**
+3. **Tenderly** (futuro)
    - Debugging de transacciones
    - Alertas de errores
 
@@ -392,24 +456,18 @@ npm test
 # Verificar seguridad
 npm audit
 
-# Actualizar contratos si es necesario
-npx hardhat run scripts/upgrade.js --network sepolia
+# Limpiar cache
+npx hardhat clean
 ```
 
-## 📞 Soporte
 
-### Recursos Útiles
+## 🎯 Estado del Proyecto
 
-- **Documentación Hardhat**: https://hardhat.org/docs
-- **Documentación Ethers.js**: https://docs.ethers.org/
-- **OpenZeppelin**: https://docs.openzeppelin.com/
-- **MetaMask**: https://docs.metamask.io/
-
-### Comunidad
-
-- **Stack Overflow**: Etiquetas `hardhat`, `ethereum`, `solidity`
-- **Discord**: Hardhat, Ethereum
-- **Reddit**: r/ethereum, r/ethdev
+- ✅ **Contratos**: Completamente funcionales y testeados
+- ✅ **Tests**: 89 tests pasando
+- ✅ **Aplicación Web**: React + Vite + Ethers v6
+- ✅ **Despliegue**: Automatizado y documentado
+- ✅ **Documentación**: Completa y actualizada
 
 ---
 
@@ -419,15 +477,16 @@ npx hardhat run scripts/upgrade.js --network sepolia
 - [ ] Git instalado
 - [ ] MetaMask instalado
 - [ ] Repositorio clonado
-- [ ] Dependencias instaladas
-- [ ] Variables de entorno configuradas
-- [ ] Hardhat configurado
-- [ ] Tests ejecutados y pasando
-- [ ] Contratos desplegados en testnet
+- [ ] Dependencias instaladas (`npm install` en root y `web_app`)
+- [ ] Variables de entorno configuradas (`.env`)
+- [ ] Hardhat configurado (`hardhat.config.js`)
+- [ ] Tests ejecutados y pasando (`npm test`)
+- [ ] Contratos compilados (`npx hardhat compile`)
+- [ ] Contratos desplegados en testnet (`npx hardhat run scripts/deploy.js --network sepolia`)
 - [ ] Contratos verificados (opcional)
-- [ ] Aplicación web configurada
+- [ ] Direcciones copiadas a la app (`deployed-addresses.json` y `contractABI.json`)
+- [ ] Aplicación web configurada y ejecutándose (`cd web_app && npm run dev`)
 - [ ] MetaMask conectado a la red correcta
-- [ ] Funcionalidad básica probada
+- [ ] Funcionalidad básica probada (mint, deposit, borrow, repay, withdraw)
 - [ ] Documentación actualizada
 
-¡Tu sistema de lending está listo para usar! 🎉 

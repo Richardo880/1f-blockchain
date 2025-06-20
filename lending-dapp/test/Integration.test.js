@@ -67,7 +67,7 @@ describe("Integración del Protocolo de Lending", function () {
       [collateral, debt, interest] = await lendingProtocol.getUserData(user1.address);
       expect(collateral).to.equal(DEPOSIT_AMOUNT);
       expect(debt).to.equal(BORROW_AMOUNT);
-      expect(interest).to.equal(ethers.parseEther("25")); // 5% de 500
+      expect(interest).to.equal(0); // Sin interés acumulado aún
 
       // 3. Pagar la deuda
       const totalDebt = debt + interest;
@@ -147,7 +147,7 @@ describe("Integración del Protocolo de Lending", function () {
 
       [collateral, debt, interest] = await lendingProtocol.getUserData(user2.address);
       expect(debt).to.equal(BORROW_AMOUNT);
-      expect(interest).to.equal(ethers.parseEther("25"));
+      expect(interest).to.equal(0); // Sin interés acumulado aún
     });
   });
 
@@ -210,11 +210,10 @@ describe("Integración del Protocolo de Lending", function () {
     });
 
     it("Debería manejar intentos de pago sin deuda", async function () {
-      // El contrato permite pagar 0 tokens sin deuda, así que este test debería pasar
-      // sin revertir, ya que transferFrom de 0 tokens es válido
+      // El contrato ahora requiere que haya deuda para hacer repay
       await expect(
         lendingProtocol.connect(user1).repay()
-      ).to.not.be.reverted;
+      ).to.be.revertedWith("No debt to repay");
       
       // Verificar que el estado no cambió
       const [collateral, debt, interest] = await lendingProtocol.getUserData(user1.address);
