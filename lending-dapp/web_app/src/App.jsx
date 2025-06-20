@@ -1,6 +1,28 @@
 import { useEffect, useState } from "react";
 import { ethers, BrowserProvider } from "ethers";
+import "./App.css";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+
 import contractABI from "./contractABI.json";
+
+import {
+  FiLogIn,
+  FiRefreshCw,
+  FiDownload,
+  FiCreditCard,
+  FiDollarSign,
+  FiUpload,
+  FiDroplet,
+  FiZap,
+  FiRepeat,
+  FiUser,
+  FiBarChart2,
+  FiTool,
+  FiCpu,
+  FiPieChart
+} from "react-icons/fi";
 
 const contractAddress = "0x482E954eD001C1DF088DED3b07933baE7c727Dca"; // Dirección del contrato principal
 const rpcURL = "https://alfajores-forno.celo-testnet.org";
@@ -246,29 +268,90 @@ function App() {
     setBalanceDDAI(ethers.formatEther(dBal));
   };
 
-
   return (
     <div>
-      <h1>Lending DApp</h1>
-      {!account && <button onClick={connectWallet}>Conectar Wallet</button>}
-      {account && (
-        <div>
-          <p><strong>Cuenta:</strong> {account}</p>
-          <button onClick={loadUserData}>Cargar Datos</button>
-          <p>Colateral: {userData.collateral} cUSD</p>
-          <p>Deuda: {userData.debt} dDAI</p>
-          <p>Interés: {userData.interest} dDAI</p>
-          <button onClick={deposit}>Depositar</button>
-          <button onClick={borrow}>Pedir Préstamo</button>
-          <button onClick={repay}>Pagar</button>
-          <button onClick={withdraw}>Retirar</button>
-          <button onClick={mintCollateral}>Mint cUSD</button>
-          <button onClick={mintLoanToken}>Mint dDAI</button>
-          <p><strong>Balance cUSD:</strong> {balanceCUSD}</p>
-          <p><strong>Balance dDAI:</strong> {balanceDDAI}</p>
-          <button onClick={loadBalances}>Actualizar Balances</button>
+      {!account ? (
+        <div id="wallet-landing">
+          <div className="logo-icon">
+            <FiLogIn />
+          </div>
+          <h1>Lending DApp</h1>
+          <button onClick={connectWallet}>
+            <FiLogIn /> Conectar Wallet
+          </button>
         </div>
+      ) : (
+        <>
+          <h1>Lending DApp</h1>
+  
+          <section className="account-info">
+            <h2><FiUser /> Información de la Cuenta</h2>
+            <p><strong>Cuenta:</strong> {account}</p>
+            <button onClick={loadUserData}>
+              <FiRefreshCw /> Cargar Datos
+            </button>
+          </section>
+  
+          <section className="balances">
+            <h2><FiBarChart2 /> Estado del Usuario</h2>
+            <div className="info-row">
+              <span><strong><FiDroplet /> Colateral:</strong></span>
+              <span>{userData.collateral} cUSD</span>
+            </div>
+            <div className="info-row">
+              <span><strong><FiCreditCard /> Deuda:</strong></span>
+              <span>{userData.debt} dDAI</span>
+            </div>
+            <div className="info-row">
+              <span><strong><FiDollarSign /> Interés:</strong></span>
+              <span>{userData.interest} dDAI</span>
+            </div>
+          </section>
+  
+          <section className="actions">
+            <h2><FiTool /> Acciones</h2>
+            <button onClick={deposit}>
+              <FiDownload /> Depositar
+            </button>
+            <button onClick={borrow}>
+              <FiCreditCard /> Pedir Préstamo
+            </button>
+            <button onClick={repay}>
+              <FiDollarSign /> Pagar
+            </button>
+            <button onClick={withdraw}>
+              <FiUpload /> Retirar
+            </button>
+          </section>
+  
+          <section className="mint-section">
+            <h2><FiCpu /> Mint Tokens (Modo Dev/Testnet)</h2>
+            <button onClick={mintCollateral}>
+              <FiDroplet /> Mint cUSD
+            </button>
+            <button onClick={mintLoanToken}>
+              <FiZap /> Mint dDAI
+            </button>
+          </section>
+  
+          <section className="balances">
+            <h2><FiPieChart /> Balances</h2>
+            <div className="info-row">
+              <span><strong><FiDroplet /> Balance cUSD:</strong></span>
+              <span>{balanceCUSD}</span>
+            </div>
+            <div className="info-row">
+              <span><strong><FiZap /> Balance dDAI:</strong></span>
+              <span>{balanceDDAI}</span>
+            </div>
+            <button onClick={loadBalances}>
+              <FiRepeat /> Actualizar Balances
+            </button>
+          </section>
+        </>
       )}
+  
+      <ToastContainer position="bottom-right" autoClose={4000} />
     </div>
   );
 }
